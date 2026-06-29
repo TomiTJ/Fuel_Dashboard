@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NSW Fuel Price Dashboard — March 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3350;
+    --text: #e8eaf0;
+    --muted: #7b82a0;
+    --accent: #4f8ef7;
+    --accent2: #f7c94f;
+    --cheap: #34d399;
+    --expensive: #f87171;
+    --diesel: #a78bfa;
+    --e10: #34d399;
+    --lpg: #f97316;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 24px 40px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .header-left h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--text);
+  }
+  .header-left p {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .data-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+
+  /* FUEL TYPE TABS */
+  .fuel-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 20px 40px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .fuel-tab {
+    padding: 10px 20px;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    bottom: -1px;
+  }
+  .fuel-tab:hover { color: var(--text); background: var(--surface2); }
+  .fuel-tab.active {
+    color: var(--text);
+    background: var(--bg);
+    border-color: var(--border);
+    border-bottom-color: var(--bg);
+  }
+  .fuel-tab .dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 7px;
+  }
+
+  /* KPI CARDS */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    padding: 24px 40px;
+  }
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .kpi-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .kpi-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1;
+  }
+  .kpi-value span {
+    font-size: 14px;
+    color: var(--muted);
+    margin-left: 2px;
+  }
+  .kpi-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .kpi-sub.cheap { color: var(--cheap); }
+  .kpi-sub.exp { color: var(--expensive); }
+
+  /* MAIN GRID */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding: 0 40px 24px;
+  }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+  }
+  .chart-card.full-width {
+    grid-column: 1 / -1;
+  }
+  .chart-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .chart-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .chart-wrap {
+    position: relative;
+    height: 280px;
+  }
+  .chart-wrap.tall { height: 340px; }
+
+  /* MAP */
+  .map-container {
+    position: relative;
+    height: 420px;
+    background: var(--surface2);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  #map-svg {
+    width: 100%;
+    height: 100%;
+  }
+  .map-legend {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: rgba(15,17,23,0.85);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 11px;
+  }
+  .legend-title { color: var(--muted); margin-bottom: 6px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+  .legend-gradient {
+    width: 120px; height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #34d399, #f7c94f, #f87171);
+    margin-bottom: 4px;
+  }
+  .legend-labels { display: flex; justify-content: space-between; color: var(--muted); }
+
+  /* TABLE */
+  .table-wrap {
+    overflow-y: auto;
+    max-height: 320px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th {
+    position: sticky; top: 0;
+    background: var(--surface2);
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+  thead th:hover { color: var(--text); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody td { padding: 9px 12px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  tbody td:first-child { font-family: 'Inter', sans-serif; font-size: 12px; }
+  .na { color: var(--muted); }
+  .price-cheap { color: var(--cheap); font-weight: 500; }
+  .price-exp { color: var(--expensive); font-weight: 500; }
+
+  /* TOOLTIP */
+  .tooltip {
+    position: fixed;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 1000;
+    display: none;
+    max-width: 200px;
+  }
+  .tooltip-name { font-weight: 600; margin-bottom: 6px; color: var(--text); }
+  .tooltip-row { display: flex; justify-content: space-between; gap: 16px; color: var(--muted); margin-top: 2px; }
+  .tooltip-row span:last-child { font-family: 'JetBrains Mono', monospace; color: var(--text); }
+
+  @media (max-width: 768px) {
+    .header { padding: 16px 20px; }
+    .fuel-tabs { padding: 16px 20px 0; }
+    .kpi-row { grid-template-columns: 1fr 1fr; padding: 16px 20px; }
+    .main-grid { grid-template-columns: 1fr; padding: 0 20px 20px; }
+    .chart-card.full-width { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>NSW Fuel Price Dashboard</h1>
+    <p>Regional price analysis · 57 localities · March 2026</p>
+  </div>
+  <div class="data-tag">SOURCE: NSW Government Fuel Check API</div>
+</div>
+
+<div class="fuel-tabs" id="fuelTabs">
+  <div class="fuel-tab active" data-fuel="Unleaded" onclick="setFuel('Unleaded', this)">
+    <span class="dot" style="background:#4f8ef7"></span>Unleaded (U91)
+  </div>
+  <div class="fuel-tab" data-fuel="Diesel" onclick="setFuel('Diesel', this)">
+    <span class="dot" style="background:#a78bfa"></span>Diesel
+  </div>
+  <div class="fuel-tab" data-fuel="E10" onclick="setFuel('E10', this)">
+    <span class="dot" style="background:#34d399"></span>E10
+  </div>
+  <div class="fuel-tab" data-fuel="LPG" onclick="setFuel('LPG', this)">
+    <span class="dot" style="background:#f97316"></span>LPG
+  </div>
+</div>
+
+<div class="kpi-row" id="kpiRow"></div>
+
+<div class="main-grid">
+  <div class="chart-card full-width">
+    <div class="chart-title">Price Map — NSW Localities</div>
+    <div class="chart-sub" id="mapSub">Colour intensity indicates price relative to NSW average</div>
+    <div class="map-container">
+      <svg id="map-svg" viewBox="140 -37.5 15 11" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="map-legend">
+        <div class="legend-title">Price (¢/L)</div>
+        <div class="legend-gradient"></div>
+        <div class="legend-labels">
+          <span id="leg-min"></span>
+          <span id="leg-avg">avg</span>
+          <span id="leg-max"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">Cheapest Regions</div>
+    <div class="chart-sub">Bottom 10 by selected fuel type</div>
+    <div class="chart-wrap"><canvas id="cheapChart"></canvas></div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">Most Expensive Regions</div>
+    <div class="chart-sub">Top 10 by selected fuel type</div>
+    <div class="chart-wrap"><canvas id="expChart"></canvas></div>
+  </div>
+
+  <div class="chart-card full-width">
+    <div class="chart-title">Fuel Type Price Comparison</div>
+    <div class="chart-sub">Average price across NSW by fuel type — all regions with available data</div>
+    <div class="chart-wrap"><canvas id="fuelCompChart"></canvas></div>
+  </div>
+
+  <div class="chart-card full-width">
+    <div class="chart-title">All Regions — Price Table</div>
+    <div class="chart-sub">Click column headers to sort · Prices in cents per litre</div>
+    <div class="table-wrap">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th onclick="sortTable('Locality')">Locality ↕</th>
+            <th onclick="sortTable('Unleaded')">Unleaded ↕</th>
+            <th onclick="sortTable('Diesel')">Diesel ↕</th>
+            <th onclick="sortTable('E10')">E10 ↕</th>
+            <th onclick="sortTable('LPG')">LPG ↕</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const RAW = [
+  {Locality:"Albury (NSW)",Latitude:-36.0804766,Longitude:146.9162795,Unleaded:229.2,Diesel:271,E10:226.4,LPG:104.4},
+  {Locality:"Armidale",Latitude:-30.5144881,Longitude:151.6656564,Unleaded:227.4,Diesel:269.4,E10:234.1,LPG:null},
+  {Locality:"Ballina",Latitude:-28.8526847,Longitude:153.4906247,Unleaded:232.8,Diesel:276,E10:232.6,LPG:null},
+  {Locality:"Batemans Bay",Latitude:-35.7072183,Longitude:150.178289,Unleaded:228.5,Diesel:270.6,E10:227.7,LPG:null},
+  {Locality:"Bathurst",Latitude:-33.4166378,Longitude:149.5804943,Unleaded:231,Diesel:275.2,E10:229.7,LPG:null},
+  {Locality:"Bega",Latitude:-36.6780983,Longitude:149.8408283,Unleaded:237.3,Diesel:272.6,E10:null,LPG:null},
+  {Locality:"Broken Hill",Latitude:-31.965,Longitude:141.4511111,Unleaded:237,Diesel:279.2,E10:null,LPG:null},
+  {Locality:"Bulahdelah",Latitude:-32.4128925,Longitude:152.2075678,Unleaded:231.3,Diesel:273,E10:227.8,LPG:null},
+  {Locality:"Buronga (NSW)",Latitude:-34.1692396,Longitude:142.1813037,Unleaded:234.6,Diesel:274.9,E10:null,LPG:null},
+  {Locality:"Casino",Latitude:-28.8631616,Longitude:153.048155,Unleaded:229.3,Diesel:276.7,E10:229,LPG:null},
+  {Locality:"Central Coast (NSW)",Latitude:-33.2825132,Longitude:151.4256691,Unleaded:230,Diesel:270,E10:228.3,LPG:108.3},
+  {Locality:"Coffs Harbour",Latitude:-30.2962407,Longitude:153.1135293,Unleaded:233.6,Diesel:275.7,E10:231.3,LPG:129.6},
+  {Locality:"Cooma",Latitude:-36.2356785,Longitude:149.1261779,Unleaded:233.4,Diesel:272.5,E10:232.8,LPG:null},
+  {Locality:"Cootamundra",Latitude:-34.6387195,Longitude:148.0240804,Unleaded:246.6,Diesel:278.8,E10:242.1,LPG:null},
+  {Locality:"Deniliquin",Latitude:-35.5302183,Longitude:144.9597178,Unleaded:235.5,Diesel:277.1,E10:223.6,LPG:null},
+  {Locality:"Dubbo",Latitude:-32.2478964,Longitude:148.6026502,Unleaded:231.3,Diesel:278.7,E10:228.6,LPG:null},
+  {Locality:"Forbes",Latitude:-33.378772,Longitude:147.9534388,Unleaded:239.3,Diesel:275.2,E10:238.4,LPG:null},
+  {Locality:"Forster",Latitude:-32.1820852,Longitude:152.5131155,Unleaded:229.2,Diesel:271.2,E10:227.5,LPG:null},
+  {Locality:"Glen Innes",Latitude:-29.7379146,Longitude:151.7356326,Unleaded:234.5,Diesel:270.2,E10:230.1,LPG:null},
+  {Locality:"Goulburn",Latitude:-34.7523871,Longitude:149.7198009,Unleaded:231.1,Diesel:272,E10:228.2,LPG:null},
+  {Locality:"Grafton",Latitude:-29.69125,Longitude:152.9333435,Unleaded:229.2,Diesel:269,E10:224.4,LPG:null},
+  {Locality:"Griffith",Latitude:-34.334545,Longitude:146.0081042,Unleaded:230,Diesel:274.3,E10:225.6,LPG:null},
+  {Locality:"Gundagai",Latitude:-35.0627335,Longitude:148.1006777,Unleaded:227.7,Diesel:271,E10:226.1,LPG:null},
+  {Locality:"Gunnedah",Latitude:-31.0237593,Longitude:150.2036527,Unleaded:223.4,Diesel:269.7,E10:217.1,LPG:null},
+  {Locality:"Hay",Latitude:-34.1573005,Longitude:144.890393,Unleaded:241.5,Diesel:281.6,E10:null,LPG:null},
+  {Locality:"Inverell",Latitude:-29.4367981,Longitude:151.1770693,Unleaded:233.7,Diesel:272,E10:null,LPG:null},
+  {Locality:"Kempsey",Latitude:-30.9056457,Longitude:152.5228021,Unleaded:238.7,Diesel:281.3,E10:232.5,LPG:null},
+  {Locality:"Leeton",Latitude:-34.5297534,Longitude:146.293258,Unleaded:230.4,Diesel:272.8,E10:229,LPG:115.4},
+  {Locality:"Lismore",Latitude:-28.8077608,Longitude:153.2791883,Unleaded:233.1,Diesel:277.2,E10:231.5,LPG:149.9},
+  {Locality:"Lithgow",Latitude:-33.481536,Longitude:150.1564887,Unleaded:233.9,Diesel:269.6,E10:231.4,LPG:129.4},
+  {Locality:"Maitland",Latitude:-32.7316683,Longitude:151.5511123,Unleaded:230.3,Diesel:268.9,E10:228.3,LPG:null},
+  {Locality:"Mittagong",Latitude:-34.4500664,Longitude:150.4473469,Unleaded:231.5,Diesel:null,E10:229.5,LPG:null},
+  {Locality:"Moama",Latitude:-36.1054404,Longitude:144.758824,Unleaded:229.7,Diesel:272.1,E10:null,LPG:null},
+  {Locality:"Moree",Latitude:-29.4617202,Longitude:149.8407153,Unleaded:235,Diesel:271.2,E10:231.6,LPG:null},
+  {Locality:"Moruya",Latitude:-35.9098127,Longitude:150.0820002,Unleaded:230.9,Diesel:267.5,E10:null,LPG:null},
+  {Locality:"Moss Vale",Latitude:-34.5486089,Longitude:150.37271,Unleaded:229.5,Diesel:269.9,E10:227.7,LPG:null},
+  {Locality:"Mudgee",Latitude:-32.5980702,Longitude:149.5886383,Unleaded:234.2,Diesel:273.5,E10:233.1,LPG:null},
+  {Locality:"Murwillumbah",Latitude:-28.3267617,Longitude:153.3971541,Unleaded:231.2,Diesel:270.3,E10:228.7,LPG:null},
+  {Locality:"Muswellbrook",Latitude:-32.4881159,Longitude:150.516408,Unleaded:229.8,Diesel:270,E10:228.4,LPG:null},
+  {Locality:"Newcastle",Latitude:-32.9272881,Longitude:151.7812534,Unleaded:230.7,Diesel:270.9,E10:228.4,LPG:117.6},
+  {Locality:"Nowra",Latitude:-34.8741198,Longitude:150.6004709,Unleaded:230,Diesel:269.5,E10:227.8,LPG:null},
+  {Locality:"Orange",Latitude:-33.2820463,Longitude:149.0971567,Unleaded:233.9,Diesel:272.4,E10:228.3,LPG:null},
+  {Locality:"Parkes",Latitude:-32.8225409,Longitude:147.9761363,Unleaded:233.4,Diesel:273.8,E10:232.6,LPG:null},
+  {Locality:"Port Macquarie",Latitude:-31.4299499,Longitude:152.9103525,Unleaded:232.2,Diesel:273.5,E10:228.6,LPG:null},
+  {Locality:"Queanbeyan (NSW)",Latitude:-35.3524518,Longitude:149.2337634,Unleaded:229.8,Diesel:269.7,E10:228,LPG:null},
+  {Locality:"Singleton",Latitude:-32.602355,Longitude:151.1132887,Unleaded:229.4,Diesel:269.1,E10:228.6,LPG:null},
+  {Locality:"Tamworth",Latitude:-31.0900743,Longitude:150.9290159,Unleaded:232.3,Diesel:272.8,E10:228,LPG:137.4},
+  {Locality:"Taree",Latitude:-31.912864,Longitude:152.4608481,Unleaded:232.4,Diesel:269,E10:230.3,LPG:null},
+  {Locality:"Temora",Latitude:-34.3830356,Longitude:147.468586,Unleaded:236.3,Diesel:275.4,E10:232,LPG:null},
+  {Locality:"Tumut",Latitude:-35.3015747,Longitude:148.2226744,Unleaded:232.8,Diesel:274.8,E10:null,LPG:null},
+  {Locality:"Tweed Heads South",Latitude:-28.2003,Longitude:153.5349368,Unleaded:229.4,Diesel:270,E10:227.4,LPG:null},
+  {Locality:"Ulladulla",Latitude:-35.3621503,Longitude:150.4751713,Unleaded:233.5,Diesel:null,E10:230.4,LPG:null},
+  {Locality:"Wagga Wagga",Latitude:-35.115,Longitude:147.3677778,Unleaded:227.7,Diesel:267.9,E10:224.8,LPG:114},
+  {Locality:"Wauchope",Latitude:-31.4557879,Longitude:152.734664,Unleaded:233.6,Diesel:274.4,E10:null,LPG:null},
+  {Locality:"West Wyalong",Latitude:-33.923661,Longitude:147.2050849,Unleaded:239.7,Diesel:277.7,E10:231.3,LPG:null},
+  {Locality:"Wollongong",Latitude:-34.4243941,Longitude:150.89385,Unleaded:231.2,Diesel:272.8,E10:229.2,LPG:110},
+  {Locality:"Woolgoolga",Latitude:-30.1108288,Longitude:153.2000074,Unleaded:230.4,Diesel:274.5,E10:null,LPG:null},
+  {Locality:"Yass",Latitude:-34.8418629,Longitude:148.9110055,Unleaded:234.7,Diesel:271,E10:229.5,LPG:null}
+];
+
+const FUEL_COLORS = { Unleaded:'#4f8ef7', Diesel:'#a78bfa', E10:'#34d399', LPG:'#f97316' };
+let currentFuel = 'Unleaded';
+let sortCol = 'Locality', sortAsc = true;
+let cheapChart, expChart, fuelCompChart;
+
+function getValues(fuel) {
+  return RAW.filter(d => d[fuel] !== null).map(d => ({...d, price: d[fuel]}));
+}
+
+function avg(arr) { return arr.reduce((a,b)=>a+b,0)/arr.length; }
+
+function lerp3(t, c1, c2, c3) {
+  if (t < 0.5) {
+    const s = t * 2;
+    return [
+      Math.round(c1[0]+(c2[0]-c1[0])*s),
+      Math.round(c1[1]+(c2[1]-c1[1])*s),
+      Math.round(c1[2]+(c2[2]-c1[2])*s)
+    ];
+  } else {
+    const s = (t-0.5)*2;
+    return [
+      Math.round(c2[0]+(c3[0]-c2[0])*s),
+      Math.round(c2[1]+(c3[1]-c2[1])*s),
+      Math.round(c2[2]+(c3[2]-c2[2])*s)
+    ];
+  }
+}
+
+function priceColor(price, min, max) {
+  const t = (price - min) / (max - min);
+  const rgb = lerp3(t, [52,211,153], [247,201,79], [248,113,113]);
+  return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+}
+
+// ---- KPI ----
+function renderKPI(fuel) {
+  const vals = getValues(fuel);
+  const prices = vals.map(d=>d.price);
+  const mn = Math.min(...prices), mx = Math.max(...prices);
+  const av = avg(prices);
+  const cheapest = vals.reduce((a,b)=>a.price<b.price?a:b);
+  const dearest = vals.reduce((a,b)=>a.price>b.price?a:b);
+
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">NSW Average</div>
+      <div class="kpi-value">${av.toFixed(1)}<span>¢/L</span></div>
+      <div class="kpi-sub">${vals.length} regions reporting</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Price Range</div>
+      <div class="kpi-value">${(mx-mn).toFixed(1)}<span>¢/L</span></div>
+      <div class="kpi-sub">spread across NSW</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Cheapest Region</div>
+      <div class="kpi-value">${mn.toFixed(1)}<span>¢/L</span></div>
+      <div class="kpi-sub cheap">${cheapest.Locality}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Most Expensive</div>
+      <div class="kpi-value">${mx.toFixed(1)}<span>¢/L</span></div>
+      <div class="kpi-sub exp">${dearest.Locality}</div>
+    </div>
+  `;
+}
+
+// ---- MAP ----
+function renderMap(fuel) {
+  const vals = getValues(fuel);
+  const prices = vals.map(d=>d.price);
+  const mn = Math.min(...prices), mx = Math.max(...prices), av = avg(prices);
+
+  document.getElementById('leg-min').textContent = mn.toFixed(0);
+  document.getElementById('leg-avg').textContent = av.toFixed(0);
+  document.getElementById('leg-max').textContent = mx.toFixed(0);
+
+  const svg = document.getElementById('map-svg');
+  svg.innerHTML = '';
+
+  // NSW outline approximate background rect
+  const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+  rect.setAttribute('x','140'); rect.setAttribute('y','-38');
+  rect.setAttribute('width','15'); rect.setAttribute('height','12');
+  rect.setAttribute('fill','#1a1d27');
+  svg.appendChild(rect);
+
+  const tooltip = document.getElementById('tooltip');
+
+  vals.forEach(d => {
+    const cx = d.Longitude;
+    const cy = d.Latitude;
+    const color = priceColor(d.price, mn, mx);
+
+    const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx', cx);
+    circle.setAttribute('cy', cy);
+    circle.setAttribute('r', '0.18');
+    circle.setAttribute('fill', color);
+    circle.setAttribute('opacity', '0.9');
+    circle.setAttribute('stroke', '#0f1117');
+    circle.setAttribute('stroke-width', '0.03');
+    circle.style.cursor = 'pointer';
+
+    circle.addEventListener('mouseenter', (e) => {
+      circle.setAttribute('r','0.26');
+      tooltip.style.display = 'block';
+      tooltip.innerHTML = `
+        <div class="tooltip-name">${d.Locality}</div>
+        <div class="tooltip-row"><span>${fuel}</span><span>${d.price} ¢/L</span></div>
+        ${d.Unleaded!==null&&fuel!=='Unleaded'?`<div class="tooltip-row"><span>Unleaded</span><span>${d.Unleaded}</span></div>`:''}
+        ${d.Diesel!==null&&fuel!=='Diesel'?`<div class="tooltip-row"><span>Diesel</span><span>${d.Diesel}</span></div>`:''}
+      `;
+    });
+    circle.addEventListener('mousemove', (e) => {
+      tooltip.style.left = (e.clientX+14)+'px';
+      tooltip.style.top = (e.clientY-10)+'px';
+    });
+    circle.addEventListener('mouseleave', () => {
+      circle.setAttribute('r','0.18');
+      tooltip.style.display = 'none';
+    });
+
+    svg.appendChild(circle);
+  });
+}
+
+// ---- BAR CHARTS ----
+const CHART_DEFAULTS = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw} ¢/L` } } },
+  scales: {
+    x: { grid: { color: '#2e3350' }, ticks: { color: '#7b82a0', font: { size: 11 } } },
+    y: { grid: { color: '#2e3350' }, ticks: { color: '#7b82a0', font: { size: 10, family: 'JetBrains Mono' } } }
+  }
+};
+
+function renderBars(fuel) {
+  const vals = getValues(fuel).sort((a,b)=>a.price-b.price);
+  const color = FUEL_COLORS[fuel];
+
+  const cheap10 = vals.slice(0,10);
+  const exp10 = vals.slice(-10).reverse();
+
+  if (cheapChart) cheapChart.destroy();
+  if (expChart) expChart.destroy();
+
+  cheapChart = new Chart(document.getElementById('cheapChart'), {
+    type: 'bar',
+    data: {
+      labels: cheap10.map(d=>d.Locality.replace(' (NSW)','')),
+      datasets: [{ data: cheap10.map(d=>d.price), backgroundColor: '#34d399', borderRadius: 4 }]
+    },
+    options: { ...CHART_DEFAULTS, indexAxis: 'y',
+      scales: {
+        x: { min: Math.min(...cheap10.map(d=>d.price))-2, grid:{color:'#2e3350'}, ticks:{color:'#7b82a0',font:{size:10,family:'JetBrains Mono'}} },
+        y: { grid:{color:'#2e3350'}, ticks:{color:'#e8eaf0',font:{size:11}} }
+      }
+    }
+  });
+
+  expChart = new Chart(document.getElementById('expChart'), {
+    type: 'bar',
+    data: {
+      labels: exp10.map(d=>d.Locality.replace(' (NSW)','')),
+      datasets: [{ data: exp10.map(d=>d.price), backgroundColor: '#f87171', borderRadius: 4 }]
+    },
+    options: { ...CHART_DEFAULTS, indexAxis: 'y',
+      scales: {
+        x: { min: Math.min(...exp10.map(d=>d.price))-2, grid:{color:'#2e3350'}, ticks:{color:'#7b82a0',font:{size:10,family:'JetBrains Mono'}} },
+        y: { grid:{color:'#2e3350'}, ticks:{color:'#e8eaf0',font:{size:11}} }
+      }
+    }
+  });
+}
+
+function renderFuelComp() {
+  const fuels = ['Unleaded','Diesel','E10','LPG'];
+  const avgs = fuels.map(f => {
+    const vals = getValues(f).map(d=>d.price);
+    return vals.length ? avg(vals) : null;
+  });
+
+  if (fuelCompChart) fuelCompChart.destroy();
+  fuelCompChart = new Chart(document.getElementById('fuelCompChart'), {
+    type: 'bar',
+    data: {
+      labels: fuels,
+      datasets: [{
+        data: avgs,
+        backgroundColor: fuels.map(f=>FUEL_COLORS[f]),
+        borderRadius: 6,
+        barThickness: 60
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false}, tooltip:{ callbacks:{ label: ctx=>`${ctx.raw ? ctx.raw.toFixed(1) : 'N/A'} ¢/L avg` } } },
+      scales: {
+        x: { grid:{color:'#2e3350'}, ticks:{color:'#e8eaf0',font:{size:13,weight:'500'}} },
+        y: { grid:{color:'#2e3350'}, ticks:{color:'#7b82a0',font:{size:11,family:'JetBrains Mono'}},
+             title:{display:true,text:'cents per litre',color:'#7b82a0',font:{size:11}} }
+      }
+    }
+  });
+}
+
+// ---- TABLE ----
+function renderTable() {
+  const data = [...RAW].sort((a,b) => {
+    const av = a[sortCol], bv = b[sortCol];
+    if (av===null && bv===null) return 0;
+    if (av===null) return 1;
+    if (bv===null) return -1;
+    if (typeof av === 'string') return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    return sortAsc ? av-bv : bv-av;
+  });
+
+  const unleadedPrices = RAW.map(d=>d.Unleaded).filter(Boolean);
+  const uMin = Math.min(...unleadedPrices), uMax = Math.max(...unleadedPrices);
+
+  document.getElementById('tableBody').innerHTML = data.map(d => {
+    const fmt = (v, fuel) => {
+      if (v===null) return '<span class="na">—</span>';
+      const vals = RAW.map(r=>r[fuel]).filter(Boolean);
+      const mn = Math.min(...vals), mx = Math.max(...vals);
+      const pct = (v-mn)/(mx-mn);
+      const cls = pct < 0.25 ? 'price-cheap' : pct > 0.75 ? 'price-exp' : '';
+      return `<span class="${cls}">${v}</span>`;
+    };
+    return `<tr>
+      <td>${d.Locality}</td>
+      <td>${fmt(d.Unleaded,'Unleaded')}</td>
+      <td>${fmt(d.Diesel,'Diesel')}</td>
+      <td>${fmt(d.E10,'E10')}</td>
+      <td>${fmt(d.LPG,'LPG')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function sortTable(col) {
+  if (sortCol===col) sortAsc=!sortAsc;
+  else { sortCol=col; sortAsc=true; }
+  renderTable();
+}
+
+function setFuel(fuel, el) {
+  currentFuel = fuel;
+  document.querySelectorAll('.fuel-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderKPI(fuel);
+  renderMap(fuel);
+  renderBars(fuel);
+}
+
+// INIT
+renderKPI('Unleaded');
+renderMap('Unleaded');
+renderBars('Unleaded');
+renderFuelComp();
+renderTable();
+</script>
+</body>
+</html>
